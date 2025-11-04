@@ -17,12 +17,14 @@ class Metric implements \JsonSerializable
 
     public function __construct(
         string $itemKey,
-        string|int|float $itemValue
+        string|int|float $itemValue,
+        string|null $hostname = null,
+        int|null $time = null
     ) {
         $this->itemKey = $itemKey;
         $this->itemValue = $itemValue;
-        $this->hostname = gethostname();
-        $this->timestamp = time();
+        $this->hostname = $hostname ?? gethostname();
+        $this->timestamp = $time ?? time();
     }
 
     /**
