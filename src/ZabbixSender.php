@@ -10,9 +10,9 @@ use Zarplata\Zabbix\Exception\ZabbixResponseException;
 class ZabbixSender
 {
     /**
-     * Instance instances array 
+     * Instance instances array
      *
-     * @var array 
+     * @var array
      */
     protected static $instances = array();
 
@@ -62,8 +62,8 @@ class ZabbixSender
      * Create singletone object
      *
      * @param string $name Name of object
-     * 
-     * @return ZabbixSender instance 
+     *
+     * @return ZabbixSender instance
      */
     public static function instance($name = 'default')
     {
@@ -83,13 +83,13 @@ class ZabbixSender
     }
 
     /**
-     * Configure connection parameters to Zabbix server 
+     * Configure connection parameters to Zabbix server
      *
-     * @param array $options Configuration options 
+     * @param array $options Configuration options
      *
      * @return Configurated instance
      */
-    public function configure(array $options = array()) 
+    public function configure(array $options = array())
     {
         if (isset($options['server_address'])) {
             $this->serverAddress = $options['server_address'];
@@ -108,7 +108,7 @@ class ZabbixSender
 
     /**
      * Disable sender functionality. It may be necessary if you want
-     * switch off send metrics but you don't want remove the code 
+     * switch off send metrics but you don't want remove the code
      * from your project.
      *
      * @return void
@@ -132,15 +132,13 @@ class ZabbixSender
      *
      * @param ZabbixPacket $packet
      *
-     * @return void
-     *
      * @throws Exception
      * @throws ZabbixNetworkException
      */
-    public function send(ZabbixPacket $packet)
+    public function send(ZabbixPacket $packet): ZabbixResponse|null
     {
         if ($this->disable) {
-            return;
+            return null;
         }
 
         $payload = $this->makePayload($packet);
@@ -199,7 +197,7 @@ class ZabbixSender
                 break;
         }
 
-        $this->checkResponse($socket);
+        return $this->checkResponse($socket);
     }
 
     /**
@@ -237,12 +235,10 @@ class ZabbixSender
      *
      * @param resource $socket
      *
-     * @return void
-     *
      * @throws ZabbixResponseException
      * @throws ZabbixNetworkException
      */
-    private function checkResponse($socket)
+    private function checkResponse($socket): ZabbixResponse
     {
         $responseBuffer = "";
         $responseBufferLength = 2048;
@@ -291,5 +287,7 @@ class ZabbixSender
                 'zabbix server returned non-successfull response'
             );
         }
+
+        return $zabbixResponse;
     }
 }
