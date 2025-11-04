@@ -30,7 +30,7 @@ class Metric implements \JsonSerializable
     /**
      * Add custom hostname to metric
      */
-    public function withHostname(string $hostname): self
+    public function withHostname(string $hostname): static
     {
         $this->hostname = $hostname;
         return $this;
@@ -39,7 +39,7 @@ class Metric implements \JsonSerializable
     /**
      * Add custom timestamp to metric
      */
-    public function withTimestamp(int $timestamp): self
+    public function withTimestamp(int $timestamp): static
     {
         $this->timestamp = $timestamp;
         return $this;
