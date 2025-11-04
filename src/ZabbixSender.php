@@ -9,6 +9,7 @@ use Zarplata\Zabbix\Exception\ZabbixResponseException;
 use Exception;
 use Socket;
 
+/** @phpstan-consistent-constructor */
 class ZabbixSender
 {
     /**
@@ -57,7 +58,7 @@ class ZabbixSender
     public static function instance(string $name = 'default'): ZabbixSender
     {
         if (!isset(self::$instances[$name])) {
-            self::$instances[$name] = new self($name);
+            self::$instances[$name] = new static($name);
         }
 
         return self::$instances[$name];
