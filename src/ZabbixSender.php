@@ -6,27 +6,29 @@ use Zarplata\Zabbix\Request\Packet as ZabbixPacket;
 use Zarplata\Zabbix\Response as ZabbixResponse;
 use Zarplata\Zabbix\Exception\ZabbixNetworkException;
 use Zarplata\Zabbix\Exception\ZabbixResponseException;
+use Exception;
+use Socket;
 
 class ZabbixSender
 {
     /**
      * Instance instances array
      *
-     * @var array
+     * @var array<string, ZabbixSender>
      */
-    protected static $instances = array();
+    protected static array $instances = [];
 
     /**
      *  Zabbix protocol header
      *
-     *  @var string
+     * @var string
      */
     private const HEADER = 'ZBXD';
 
     /**
      *  Zabbix protocol version
      *
-     *  @var int
+     * @var int
      */
     private const VERSION = 1;
 
@@ -38,37 +40,24 @@ class ZabbixSender
      */
     private const RESPONSE_HEADER_LENGTH = 13;
 
-    /**
-     *  @var string
-     */
-    private $serverAddress;
+    private string $serverAddress;
+
+    private int $serverPort;
 
     /**
-     *  @var int
+     * Disable send operation
      */
-    private $serverPort;
+    private bool $disable = false;
 
     /**
-     * @var ZabbixPacket
-     */
-    private $packet;
-
-    /**
-     * @var bool Disable send operation
-     */
-    private $disable = false;
-
-    /**
-     * Create singletone object
+     * Create singleton object
      *
      * @param string $name Name of object
-     *
-     * @return ZabbixSender instance
      */
-    public static function instance($name = 'default')
+    public static function instance(string $name = 'default'): ZabbixSender
     {
         if (!isset(self::$instances[$name])) {
-            self::$instances[$name] = new static($name);
+            self::$instances[$name] = new self($name);
         }
 
         return self::$instances[$name];
@@ -85,11 +74,12 @@ class ZabbixSender
     /**
      * Configure connection parameters to Zabbix server
      *
-     * @param array $options Configuration options
+     * @param array<string, string|int|bool> $options Configuration options
+     * @phpstan-param array{server_address?: string, server_port?: int, disable?: bool } $options
      *
-     * @return Configurated instance
+     * @return ZabbixSender Configurated instance
      */
-    public function configure(array $options = array())
+    public function configure(array $options = []): ZabbixSender
     {
         if (isset($options['server_address'])) {
             $this->serverAddress = $options['server_address'];
@@ -110,27 +100,20 @@ class ZabbixSender
      * Disable sender functionality. It may be necessary if you want
      * switch off send metrics but you don't want remove the code
      * from your project.
-     *
-     * @return void
      */
-    public function disable() {
+    public function disable(): void {
         $this->disable = true;
     }
 
     /**
      * Enable sender functionality. This is reverse operation of `disable()`
-     *
-     * @return void
      */
-    public function enable() {
+    public function enable(): void {
         $this->disable = false;
     }
 
     /**
      * Send packet of metrics to Zabbix server through network socket
-     *
-     *
-     * @param ZabbixPacket $packet
      *
      * @throws Exception
      * @throws ZabbixNetworkException
@@ -147,7 +130,7 @@ class ZabbixSender
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
 
         if (!$socket) {
-            throw new \Exception("can't create TCP socket");
+            throw new Exception("can't create TCP socket");
         }
 
         $socketConnected = socket_connect(
@@ -209,12 +192,15 @@ class ZabbixSender
     private function makePayload(ZabbixPacket $packet): string
     {
         $encodedPacket = json_encode($packet);
+        if ($encodedPacket === false) {
+            throw new Exception('Unable to decode JSON for: ' . $encodedPacket);
+        }
+
         return self::zbxCreateHeader(strlen($encodedPacket)) . $encodedPacket;
     }
 
     /**
      * Zabbix Packet Header
-     *
      */
     public static function zbxCreateHeader(int $plain_data_size, int|null $compressed_data_size = null): string
     {
@@ -233,12 +219,11 @@ class ZabbixSender
     /**
      * Check response from Zabbix server
      *
-     * @param resource $socket
      *
      * @throws ZabbixResponseException
      * @throws ZabbixNetworkException
      */
-    private function checkResponse($socket): ZabbixResponse
+    private function checkResponse(Socket $socket): ZabbixResponse
     {
         $responseBuffer = "";
         $responseBufferLength = 2048;
@@ -250,7 +235,7 @@ class ZabbixSender
             0
         );
 
-        if (!$bytesCount) {
+        if (!$bytesCount || !is_string($responseBuffer)) {
             throw new ZabbixNetworkException(
                 "can't receive response from socket"
             );
@@ -265,19 +250,14 @@ class ZabbixSender
             true
         );
 
-        switch (true) {
-            case $response === null:
-            case $response === false:
-                throw new ZabbixResponseException(
-                    sprintf(
-                        "can't decode zabbix server response %s, reason: %s",
-                        $responseWithoutHeader,
-                        json_last_error_msg()
-                    )
-                );
-
-            default:
-                break;
+        if (!is_array($response)) {
+            throw new ZabbixResponseException(
+                sprintf(
+                    "can't decode zabbix server response %s, reason: %s",
+                    $responseWithoutHeader,
+                    json_last_error_msg()
+                )
+            );
         }
 
         $zabbixResponse = new ZabbixResponse($response);
